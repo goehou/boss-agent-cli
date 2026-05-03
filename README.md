@@ -18,7 +18,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/can4hou6joeng4/boss-agent-cli/pulls)
 [![Open in Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/can4hou6joeng4/boss-agent-cli)
 
-[安装](#-安装) · [快速开始](#-快速开始) · [角色模式](#-角色模式与多平台) · [Agent 集成](#-ai-agent-集成) · [命令参考](#-命令参考) · [排障](#-诊断与排障) · [架构](#-技术架构) · [更新日志](CHANGELOG.md) · [路线图](ROADMAP.md)
+[快速上手](docs/getting-started.md) · [安装](#-安装) · [快速开始](#-快速开始) · [角色模式](#-角色模式与多平台) · [Agent 集成](#-ai-agent-集成) · [命令参考](#-命令参考) · [排障](#-诊断与排障) · [架构](#-技术架构) · [更新日志](CHANGELOG.md) · [路线图](ROADMAP.md)
 
 **中文** | [English](README.en.md)
 
@@ -179,6 +179,8 @@ boss hr jobs list                     # 我发布的职位
 - `boss --platform zhilian login` 已可用，当前覆盖**求职者侧**认证链路
 - `boss --platform zhilian` 目前已支持候选者侧 `search / detail / recommend / user_info / greet / apply`
 - `boss --platform zhilian hr ...` 仍不支持，CLI 会直接拒绝执行招聘者侧子命令
+
+涉及 Cookie、CDP、patchright、真实账号、请求频率或平台接口漂移的问题，请先阅读 [平台风险边界](docs/platform-risk.md)。
 
 <details>
 <summary>📖 CDP 启动示例</summary>

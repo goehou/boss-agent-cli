@@ -1,0 +1,238 @@
+from pathlib import Path
+
+import yaml
+
+
+ROOT = Path(__file__).resolve().parents[1]
+ISSUE_FORM_PATHS = [
+	".github/ISSUE_TEMPLATE/bug_report.yml",
+	".github/ISSUE_TEMPLATE/feature_request.yml",
+	".github/ISSUE_TEMPLATE/documentation.yml",
+]
+SUPPORTED_ISSUE_FORM_TYPES = {"markdown", "input", "textarea", "dropdown", "checkboxes"}
+
+
+def read(path: str) -> str:
+	return (ROOT / path).read_text(encoding="utf-8")
+
+
+def load_yaml(path: str) -> dict:
+	content = yaml.safe_load(read(path))
+	assert isinstance(content, dict)
+	return content
+
+
+def test_getting_started_docs_exist_and_cover_happy_path():
+	zh = read("docs/getting-started.md")
+	en = read("docs/getting-started.en.md")
+
+	for content in (zh, en):
+		assert "uv tool install boss-agent-cli" in content
+		assert "patchright install chromium" in content
+		assert "boss doctor" in content
+		assert "boss status" in content
+		assert "boss schema --format native" in content
+		assert "JSON" in content
+		assert "security_id" in content
+
+
+def test_readme_and_contributing_link_getting_started_docs():
+	assert "docs/getting-started.md" in read("README.md")
+	assert "docs/getting-started.en.md" in read("README.en.md")
+	assert "docs/getting-started.md" in read("CONTRIBUTING.md")
+	assert "docs/getting-started.en.md" in read("CONTRIBUTING.en.md")
+
+
+def test_platform_risk_docs_exist_and_cover_sensitive_boundaries():
+	zh = read("docs/platform-risk.md")
+	en = read("docs/platform-risk.en.md")
+
+	for content in (zh, en):
+		assert "Cookie" in content
+		assert "CDP" in content
+		assert "patchright" in content
+		assert "rate" in content.lower() or "频率" in content
+		assert "security_id" in content
+		assert "BOSS_SMOKE_DRY_RUN" in content
+		assert "redact" in content.lower() or "脱敏" in content
+
+
+def test_security_and_readme_link_platform_risk_docs():
+	assert "docs/platform-risk.md" in read("README.md")
+	assert "docs/platform-risk.en.md" in read("README.en.md")
+	assert "docs/platform-risk.md" in read("SECURITY.md")
+
+
+def test_maintainer_docs_cover_open_source_governance():
+	branch = read("docs/maintainer/branch-protection.md")
+	release = read("docs/maintainer/release-checklist.md")
+	labels = read("docs/maintainer/labels.md")
+
+	assert "required status checks" in branch
+	assert "test (3.10)" in branch
+	assert "test (3.11)" in branch
+	assert "test (3.12)" in branch
+	assert "test (3.13)" in branch
+	assert "lint" in branch
+	assert "typecheck" in branch
+	assert "docs" in branch
+	assert "allow_force_pushes" in branch
+	assert "allow_deletions" in branch
+
+	assert "uv run pytest tests/ -q" in release
+	assert "uv run ruff check src/ tests/" in release
+	assert "uv run mypy src/boss_agent_cli" in release
+	assert "uv build" in release
+	assert "uv publish" in release
+	assert "schema" in release
+	assert "redact" in release.lower()
+
+	assert "good first issue" in labels
+	assert "platform-drift" in labels
+	assert "contract" in labels
+	assert "triage" in labels
+
+
+def test_contributing_links_maintainer_governance_docs():
+	assert "docs/maintainer/release-checklist.md" in read("CONTRIBUTING.md")
+	assert "docs/maintainer/labels.md" in read("CONTRIBUTING.md")
+	assert "docs/maintainer/release-checklist.md" in read("CONTRIBUTING.en.md")
+	assert "docs/maintainer/labels.md" in read("CONTRIBUTING.en.md")
+
+
+def test_pull_request_template_requires_quality_and_risk_checks():
+	template = read(".github/PULL_REQUEST_TEMPLATE.md")
+
+	assert "uv run pytest tests/ -q" in template
+	assert "uv run ruff check src/ tests/" in template
+	assert "uv run mypy src/boss_agent_cli" in template
+	assert "docs/platform-risk.md" in template
+	assert "docs/maintainer/release-checklist.md" in template
+	assert "JSON 信封" in template
+	assert "Token / 密码 / Cookie / security_id" in template
+	assert "commit message 格式: `type: 中文描述`" in template
+	assert "（或英文等价）" not in template
+
+
+def test_issue_templates_collect_contract_and_platform_context():
+	bug = read(".github/ISSUE_TEMPLATE/bug_report.yml")
+	feature = read(".github/ISSUE_TEMPLATE/feature_request.yml")
+	docs = read(".github/ISSUE_TEMPLATE/documentation.yml")
+
+	assert "platform" in bug
+	assert "role" in bug
+	assert "security_id" in bug
+	assert "平台漂移" in bug
+	assert "JSON 信封" in bug
+	assert "redacted" in bug or "脱敏" in bug
+
+	assert "platform" in feature
+	assert "role" in feature
+	assert "JSON 信封" in feature
+	assert "Agent" in feature
+
+	assert "docs-parity" in docs
+	assert "README.en.md" in docs
+
+
+def test_issue_templates_are_valid_structured_forms():
+	for path in ISSUE_FORM_PATHS:
+		form = load_yaml(path)
+
+		assert {"name", "description", "title", "labels", "body"} <= set(form)
+
+		body = form["body"]
+		assert isinstance(body, list)
+		assert body
+
+		ids = []
+		for item in body:
+			assert isinstance(item, dict)
+			assert item.get("type") in SUPPORTED_ISSUE_FORM_TYPES
+
+			if item["type"] != "markdown":
+				assert item.get("id")
+				ids.append(item["id"])
+
+			if item["type"] in {"dropdown", "checkboxes"}:
+				attributes = item.get("attributes")
+				assert isinstance(attributes, dict)
+				options = attributes.get("options")
+				assert isinstance(options, list)
+				assert options
+
+		assert len(ids) == len(set(ids))
+
+
+def test_docs_workflow_runs_open_source_doc_checks():
+	raw_workflow = read(".github/workflows/docs.yml")
+	workflow = load_yaml(".github/workflows/docs.yml")
+
+	expected_paths = [
+		"README.md",
+		"README.en.md",
+		"CONTRIBUTING.md",
+		"CONTRIBUTING.en.md",
+		"SECURITY.md",
+		"docs/**",
+		".github/ISSUE_TEMPLATE/**",
+		".github/PULL_REQUEST_TEMPLATE.md",
+		"tests/test_agent_docs.py",
+		"tests/test_open_source_docs.py",
+		".github/workflows/docs.yml",
+	]
+	expected_run_commands = [
+		"uv python install 3.11",
+		"uv sync --all-extras",
+		"uv run pytest tests/test_agent_docs.py tests/test_open_source_docs.py -q",
+		(
+			"if [ \"${{ github.event_name }}\" = \"pull_request\" ]; then\n"
+			"  git fetch --no-tags --depth=1 origin \"${{ github.base_ref }}\"\n"
+			"  git diff --check \"origin/${{ github.base_ref }}...HEAD\"\n"
+			"elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then\n"
+			"  git diff --check HEAD^...HEAD\n"
+			"else\n"
+			"  git diff --check\n"
+			"fi\n"
+		),
+	]
+
+	assert "name: Docs" in raw_workflow
+	assert workflow["name"] == "Docs"
+
+	triggers = workflow["on"]
+	assert {"push", "pull_request", "workflow_dispatch"} <= set(triggers)
+	assert triggers["push"]["branches"] == ["master"]
+	assert set(expected_paths) <= set(triggers["push"]["paths"])
+	assert triggers["pull_request"]["branches"] == ["master"]
+	assert "paths" not in triggers["pull_request"]
+
+	jobs = workflow["jobs"]
+	assert "docs" in jobs
+	docs_job = jobs["docs"]
+	assert docs_job["runs-on"] == "ubuntu-latest"
+	checkout_step = docs_job["steps"][0]
+	assert checkout_step["uses"] == "actions/checkout@v6"
+	assert checkout_step["with"]["fetch-depth"] == 0
+	run_commands = [
+		step["run"]
+		for step in docs_job["steps"]
+		if "run" in step
+	]
+	assert run_commands == expected_run_commands
+
+
+def test_contributing_clarifies_verification_and_tab_indentation():
+	zh = read("CONTRIBUTING.md")
+	en = read("CONTRIBUTING.en.md")
+	pyproject = read("pyproject.toml")
+
+	for content in (zh, en):
+		assert "tab" in content.lower()
+		assert "indent-width" in content
+		assert "uv run pytest tests/ -q" in content
+		assert "uv run ruff check src/ tests/" in content
+		assert "uv run mypy src/boss_agent_cli" in content
+		assert "uv run boss schema --format native" in content
+
+	assert "# Python files intentionally use tabs" in pyproject
